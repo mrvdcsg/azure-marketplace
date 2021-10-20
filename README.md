@@ -121,13 +121,17 @@ value defined in the template.
     </td><td><code>""</code></td></tr>
 
   <tr><td>loadBalancerType</td><td>string</td>
-    <td> The load balancer to set up to access the cluster. Can be <code>internal</code>, <code>external</code> or <code>gateway</code>. 
+    <td> The load balancer to set up to access the cluster. Can be <code>internal</code>, <code>external</code>, <code>gateway</code> or <code>privategateway</code>. 
     <ul>
     <li>By choosing <code>internal</code>, only an internal load balancer is deployed. Useful when connecting to the cluster happens from inside the Virtual Network</li>
     <li>By choosing <code>external</code>, both internal and external load balancers will be deployed. Kibana communicates with the cluster through the internal
     load balancer.</li>
     <li>By choosing <code>gateway</code>, <a href="https://docs.microsoft.com/en-us/azure/application-gateway/application-gateway-introduction">Application Gateway</a> will be deployed for load balancing, 
     allowing a PKCS#12 archive (.pfx/.p12) containing the certificate and key to be supplied for SSL/TLS to and from Application Gateway, and providing SSL offload.
+    An internal load balancer will also deployed. Application Gateway and Kibana communicate with the cluster through the internal
+    load balancer.</li>
+    <li>By choosing <code>privategateway</code>, <a href="https://docs.microsoft.com/en-us/azure/application-gateway/application-gateway-introduction">Application Gateway</a> will be deployed for load balancing, 
+    allowing a PKCS#12 archive (.pfx/.p12) containing the certificate and key to be supplied for SSL/TLS to and from Application Gateway, and providing SSL offload. NOTE: This option will not create a public IP address and allocate it to the gateway.
     An internal load balancer will also deployed. Application Gateway and Kibana communicate with the cluster through the internal
     load balancer.</li>
     </ul>
