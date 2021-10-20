@@ -57,7 +57,8 @@
       "allowedValues": [
         "internal",
         "external",
-        "gateway"
+        "gateway",
+        "privategateway"
       ],
       "metadata": {
         "description": "Set up an internal or external load balancer, or use Application Gateway (gateway) for load balancing and SSL offload. If you are setting up Elasticsearch on a publicly available endpoint, it is *strongly recommended* to secure your nodes with a product like the Elastic Stack's Security features"
@@ -1227,6 +1228,7 @@
       "defaultValue": "Standard",
       "allowedValues": [
         "Standard",
+        "Private",
         "WAF"
       ],
       "metadata": {
@@ -1306,7 +1308,8 @@
     "loadBalancerOptions": {
       "internal": "internal-lb-resources",
       "external": "external-lb-resources",
-      "gateway": "[concat(toLower(parameters('appGatewayTier')),'-application-gateway-resources')]"
+      "gateway": "[concat(toLower(parameters('appGatewayTier')),'-application-gateway-resources')]",
+      "privategateway": "standard-application-gateway-resources-private"
     },
     "loadBalancerTemplateUrl": "[uri(parameters('_artifactsLocation'), concat('loadbalancers/', variables('loadBalancerOptions')[parameters('loadBalancerType')],'.json', parameters('_artifactsLocationSasToken')))]",
     "osSettingsTemplateUrl": "[uri(parameters('_artifactsLocation'), concat('settings/ubuntuSettings.json', parameters('_artifactsLocationSasToken')))]",

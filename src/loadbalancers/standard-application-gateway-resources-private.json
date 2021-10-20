@@ -1,0 +1,291 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "networkSettings": {
+      "type": "object",
+      "metadata": {
+        "description": "Network settings object"
+      }
+    },
+    "applicationGatewaySettings": {
+      "type": "object",
+      "metadata": {
+        "description": "Application Gateway settings"
+      }
+    },
+    "elasticTags": {
+      "type": "object",
+      "defaultValue": {
+        "provider": "648D2193-0CE0-4EFB-8A82-AF9792184FD9"
+      },
+      "metadata": {
+        "description": "Unique identifiers to allow the Azure Infrastructure to understand the origin of resources deployed to Azure. You do not need to supply a value for this."
+      }
+    }
+  },
+  "variables": {
+    "applicationGatewayName": "[concat(parameters('networkSettings').namespacePrefix, 'app-gateway')]",
+    "applicationGatewayIp": "[concat(parameters('networkSettings').namespacePrefix, 'app-gateway-ip')]",
+    "internalLoadBalancerName": "[concat(parameters('networkSettings').namespacePrefix, 'internal-lb')]",
+    "authenticationCertsOpts": {
+      "Yes": [
+        {
+          "properties": {
+            "data": "[parameters('applicationGatewaySettings').backendCert]"
+          },
+          "name": "esHttpCert"
+        }
+      ],
+      "No": []
+    },
+    "authenticationCerts": "[variables('authenticationCertsOpts')[if(empty(parameters('applicationGatewaySettings').backendCert), 'No', 'Yes')]]",
+    "backendCertsOpts": {
+      "Yes": [
+        {
+          "id": "[resourceId('Microsoft.Network/applicationGateways/authenticationCertificates', variables('applicationGatewayName'), 'esHttpCert')]"
+        }
+      ],
+      "No": []
+    },
+    "backendCerts": "[variables('backendCertsOpts')[if(empty(parameters('applicationGatewaySettings').backendCert), 'No', 'Yes')]]"
+  },
+  "resources": [
+    {
+      "apiVersion": "2019-04-01",
+      "name": "[variables('internalLoadBalancerName')]",
+      "type": "Microsoft.Network/loadBalancers",
+      "location": "[parameters('networkSettings').location]",
+      "sku": {
+        "name": "[parameters('networkSettings').internalSku]"
+      },
+      "tags": {
+        "provider": "[toUpper(parameters('elasticTags').provider)]"
+      },
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "name": "LBFE",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId(parameters('networkSettings').resourceGroup, 'Microsoft.Network/virtualNetworks/subnets', parameters('networkSettings').name, parameters('networkSettings').subnet.name)]"
+              },
+              "privateIPAddress": "[parameters('networkSettings').subnet.loadBalancerIp]",
+              "privateIPAllocationMethod": "Static"
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "LBBE"
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "name": "es-http-internal",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', variables('internalLoadBalancerName'), 'LBFE')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('internalLoadBalancerName'), 'LBBE')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 9200,
+              "backendPort": 9200,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/probes', variables('internalLoadBalancerName'), 'es-probe-internal-http')]"
+              }
+            }
+          },
+          {
+            "name": "es-transport-internal",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', variables('internalLoadBalancerName'), 'LBFE')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', variables('internalLoadBalancerName'), 'LBBE')]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 9300,
+              "backendPort": 9300,
+              "enableFloatingIP": false,
+              "idleTimeoutInMinutes": 5
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "es-probe-internal-http",
+            "properties": {
+              "protocol": "Tcp",
+              "port": 9200,
+              "intervalInSeconds": 30,
+              "numberOfProbes": 3
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "2019-04-01",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "name": "[variables('applicationGatewayIp')]",
+      "location": "[parameters('networkSettings').location]",
+      "tags": {
+        "provider": "[toUpper(parameters('elasticTags').provider)]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
+    {
+      "apiVersion": "2019-04-01",
+      "name": "[variables('applicationGatewayName')]",
+      "type": "Microsoft.Network/applicationGateways",
+      "location": "[parameters('networkSettings').location]",
+      "tags": {
+        "provider": "[toUpper(parameters('elasticTags').provider)]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', variables('applicationGatewayIp'))]"
+      ],
+      "properties": {
+        "sku": {
+          "name": "[parameters('applicationGatewaySettings').skuName]",
+          "tier": "[parameters('applicationGatewaySettings').tier]",
+          "capacity": "[parameters('applicationGatewaySettings').instanceCount]"
+        },
+        "sslCertificates": [
+          {
+            "name": "es-app-gateway-sslcert",
+            "properties": {
+              "data": "[parameters('applicationGatewaySettings').certBlob]",
+              "password": "[parameters('applicationGatewaySettings').certPassword]"
+            }
+          }
+        ],
+        "authenticationCertificates": "[variables('authenticationCerts')]",
+        "gatewayIPConfigurations": [
+          {
+            "name": "es-app-gateway-ip",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId(parameters('networkSettings').resourceGroup, 'Microsoft.Network/virtualNetworks/subnets', parameters('networkSettings').name, parameters('networkSettings').applicationGatewaySubnet.name)]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "es-app-gateway-fip",
+            "properties": {
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('applicationGatewayIp'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "es-app-gateway-fport",
+            "properties": {
+              "port": 9200
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "LBBE",
+            "properties": {
+              "backendAddresses": [
+                {
+                  "ipAddress": "[parameters('networkSettings').subnet.loadBalancerIp]"
+                }
+              ]
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "es-app-gateway-httpsettings",
+            "properties": {
+              "port": 9200,
+              "protocol": "[parameters('applicationGatewaySettings').backendProtocol]",
+              "cookieBasedAffinity": "Disabled",
+              "authenticationCertificates": "[variables('backendCerts')]",
+              "probeEnabled": true,
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/probes', variables('applicationGatewayName'), 'es-app-gateway-probe')]"
+              },
+              "requestTimeout": 86400
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "es-app-gateway-httplistener",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', variables('applicationGatewayName'), 'es-app-gateway-fip')]"
+              },
+              "frontendPort": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', variables('applicationGatewayName'), 'es-app-gateway-fport')]"
+              },
+              "protocol": "Https",
+              "sslCertificate": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/sslCertificates', variables('applicationGatewayName'), 'es-app-gateway-sslcert')]"
+              }
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "Name": "rule1",
+            "properties": {
+              "ruleType": "Basic",
+              "httpListener": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', variables('applicationGatewayName'), 'es-app-gateway-httplistener')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', variables('applicationGatewayName'), 'LBBE')]"
+              },
+              "backendHttpSettings": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', variables('applicationGatewayName'), 'es-app-gateway-httpsettings')]"
+              }
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "es-app-gateway-probe",
+            "properties": {
+              "protocol": "[parameters('applicationGatewaySettings').backendProtocol]",
+              "path": "/",
+              "host": "127.0.0.1",
+              "interval": 30,
+              "timeout": 30,
+              "unhealthyThreshold": 3,
+              "match": {
+                "statusCodes": [
+                  "200-399",
+                  "401"
+                ],
+                "body": ""
+              }
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "outputs": {
+    "fqdn": {
+      "value": "N/A",
+      "type": "string"
+    }
+  }
+}
