@@ -1848,6 +1848,11 @@
         {
           "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', concat(parameters('vmHostNamePrefix'), 'internal-lb'), 'LBBE')]"
         }
+      ],
+      "privategateway": [
+        {
+          "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', concat(parameters('vmHostNamePrefix'), 'internal-lb'), 'LBBE')]"
+        }
       ]
     },
     "lbBackEndPoolsAdded": {
