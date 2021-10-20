@@ -168,6 +168,9 @@
           {
             "name": "es-app-gateway-fip",
             "properties": {
+              "subnet": {
+                "id": "[resourceId(parameters('networkSettings').resourceGroup, 'Microsoft.Network/virtualNetworks/subnets', parameters('networkSettings').name, parameters('networkSettings').applicationGatewaySubnet.name)]"
+              },
               "PrivateIPAllocationMethod" : "Dynamic"
             }
           }
