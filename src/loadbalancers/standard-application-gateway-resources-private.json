@@ -132,27 +132,12 @@
     },
     {
       "apiVersion": "2019-04-01",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "name": "[variables('applicationGatewayIp')]",
-      "location": "[parameters('networkSettings').location]",
-      "tags": {
-        "provider": "[toUpper(parameters('elasticTags').provider)]"
-      },
-      "properties": {
-        "publicIPAllocationMethod": "Dynamic"
-      }
-    },
-    {
-      "apiVersion": "2019-04-01",
       "name": "[variables('applicationGatewayName')]",
       "type": "Microsoft.Network/applicationGateways",
       "location": "[parameters('networkSettings').location]",
       "tags": {
         "provider": "[toUpper(parameters('elasticTags').provider)]"
       },
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/publicIPAddresses', variables('applicationGatewayIp'))]"
-      ],
       "properties": {
         "sku": {
           "name": "[parameters('applicationGatewaySettings').skuName]",
@@ -183,9 +168,7 @@
           {
             "name": "es-app-gateway-fip",
             "properties": {
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('applicationGatewayIp'))]"
-              }
+              "PrivateIPAllocationMethod" : "Dynamic"
             }
           }
         ],
